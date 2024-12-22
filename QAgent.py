@@ -2,21 +2,7 @@ import numpy as np
 import gym
 import random
 from typing import List
-
-
-def get_avlb_actions(state, n) -> List:
-    avlb_actions = list(range(n))
-
-    if state % n == 0:
-        avlb_actions.remove(0)
-    if state < n:
-        avlb_actions.remove(3)
-    if state % (n - 1) == 0:
-        avlb_actions.remove(2)
-    if n ** 2 - n < state < n ** 2:
-        avlb_actions.remove(1)
-
-    return avlb_actions
+from constants import *
 
 
 class QAgent:
@@ -28,34 +14,34 @@ class QAgent:
 
     def train(self, env: gym.Env, n_trials, n_steps):
         for trial in range(n_trials):
+            finished_trial = False
             state, _ = env.reset()
             for _ in range(n_steps):
                 # Choose action
-                avlb_actions = get_avlb_actions(state, env.action_space.n)
-                if random.uniform(0, 1) > self.epsilon:
-                    psb_action = np.argmax(self.q_table[state, :])
-                    action = psb_action if psb_action in avlb_actions else avlb_actions[0]
-                else:
-                    rand_action = env.action_space.sample()
-                    action = rand_action if rand_action in avlb_actions else avlb_actions[0]
-
+                action = self.choose_action(env, state)
                 # Perform action
                 next_state, reward, done, _, _ = env.step(action)
 
+                if done and reward == 0:  # Fell in a hole
+                    reward = -1
+                    finished_trial = True
+                elif done and reward == 1:  # Reached goal
+                    reward = 10
+                    finished_trial = True
+
                 # Q-value update
-                curr_value = self.q_table[state, action]
-                new_val = (1 - self.learning_rate) * curr_value + self.learning_rate * (
-                        reward + self.gamma * np.max(self.q_table[next_state, :])
-                )
+                old_value = self.q_table[state, action]
+                next_max = np.max(self.q_table[next_state, :])
+                new_val = (1 - self.learning_rate) * old_value + self.learning_rate * (reward + self.gamma * next_max)
                 self.q_table[state, action] = new_val
 
                 state = next_state
+                self.epsilon = max(min_epsilon, self.epsilon * epsilon_decay)
 
-                if done:
+                if finished_trial:
                     break
 
-
-    def test(self, env: gym.Env, n_steps, n_test_trials):
+    def test(self, env: gym.Env, n_test_trials, n_steps):
         successes = 0
         for _ in range(n_test_trials):
             state, _ = env.reset()
@@ -74,22 +60,16 @@ class QAgent:
 
         return (successes / n_test_trials) * 100
 
+    def choose_action(self, env: gym.Env, state):
+        if random.uniform(0, 1) > self.epsilon:
+            action = np.argmax(self.q_table[state, :])
+        else:
+            action = env.action_space.sample()
 
-# Generate environment
-env = gym.make("FrozenLake-v1", render_mode=None)
-num_of_actions = env.action_space.n
-num_of_states = env.observation_space.n
+        return action
 
-# Hyperparameters
-learning_episodes = 100000
-learning_rate = 0.2
-max_steps = 5000
-epsilon = 0.3
-gamma = 0.8
 
-# Create agent and train
-agent = QAgent(num_of_states, num_of_actions, learning_rate, epsilon, gamma)
-agent.train(env, learning_episodes, max_steps)
 
-print(agent.q_table)
-print("Success rate:", agent.test(env, max_steps, 500))
+
+
+
