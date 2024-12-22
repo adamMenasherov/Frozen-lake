@@ -12,5 +12,5 @@ num_of_states = env.observation_space.n
 agent = QAgent(num_of_states, num_of_actions, learning_rate, epsilon, gamma)
 agent.train(env, learning_episodes, max_steps)
 print(agent.q_table)
-print("Success rate:", agent.test(env, 10000, max_steps))
-env.close()
+env = gym.make("FrozenLake-v1", render_mode='human')
+print("Success rate:", agent.test(env, 100, max_steps))

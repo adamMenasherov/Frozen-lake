@@ -1,7 +1,6 @@
 import numpy as np
 import gym
 import random
-from typing import List
 from constants import *
 
 
